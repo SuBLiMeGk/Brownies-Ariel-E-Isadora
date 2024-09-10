@@ -1,0 +1,499 @@
+<html><head><base href="https://brownies-ariel-e-isadora.com/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Vendas de Brownies - Ariel e Isadora</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        background-color: #f0e0d0;
+    }
+    .container {
+        background-color: #fff;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        max-width: 800px;
+        width: 100%;
+        margin: 0 auto; /* Center the container */
+    }
+    h1, h2 {
+        color: #8b4513;
+        text-align: center;
+    }
+    .buttons {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    button {
+        padding: 1rem;
+        font-size: 1rem;
+        background-color: #d2691e;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    button:hover {
+        background-color: #a0522d;
+    }
+    #totalSales, #dailyAverage, #monthlyAverage {
+        margin-top: 1rem;
+        font-weight: bold;
+    }
+    .tabs {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+    .tab {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        background-color: #f0e0d0;
+        border: 1px solid #d2691e;
+    }
+    .tab.active {
+        background-color: #d2691e;
+        color: white;
+    }
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    #dailySalesTable, #monthlySalesTable {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    #dailySalesTable th, #dailySalesTable td,
+    #monthlySalesTable th, #monthlySalesTable td {
+        border: 1px solid #d2691e;
+        padding: 0.5rem;
+        text-align: left;
+    }
+    #dailySalesTable th, #monthlySalesTable th {
+        background-color: #f0e0d0;
+    }
+    .undo-btn {
+        background-color: #ff6347;
+        padding: 0.5rem;
+        font-size: 0.8rem;
+        margin-left: 0.5rem;
+    }
+    .undo-btn:hover {
+        background-color: #ff4500;
+    }
+    #undoLastSale {
+        background-color: #ff6347;
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        margin-top: 1rem;
+        width: 100%;
+    }
+    #undoLastSale:hover {
+        background-color: #ff4500;
+    }
+    #undoLastSale:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+    }
+    #summaryTable {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+    }
+    #summaryTable th, #summaryTable td {
+        border: 1px solid #d2691e;
+        padding: 0.5rem;
+        text-align: left;
+    }
+    #summaryTable th {
+        background-color: #f0e0d0;
+    }
+    #dailySalesTable td, #monthlySalesTable td {
+        vertical-align: top;
+        white-space: nowrap;
+    }
+
+    #dailySalesTable td:nth-child(4), #monthlySalesTable td:nth-child(4) {
+        white-space: normal;
+    }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1>Controle de Vendas de Brownies</h1>
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('sales')">Vendas</div>
+            <div class="tab" onclick="showTab('daily')">Vendas por Dia</div>
+            <div class="tab" onclick="showTab('monthly')">Vendas por Mês</div>
+        </div>
+        <div id="salesTab" class="tab-content active">
+            <div class="buttons">
+                <button onclick="addSale(5)">BROWNIE R$5</button>
+                <button onclick="addSale(4)">BROWNIE R$4</button>
+                <button onclick="addSale(3.50)">BROWNIE R$3,50</button>
+                <button onclick="addSale(2.50)">BROWNIE R$2,50</button>
+            </div>
+            <table id="summaryTable">
+                <thead>
+                    <tr>
+                        <th>Métrica</th>
+                        <th>Valor</th>
+                        <th>Resumo de Hoje</th>
+                        <th>Resumo do Mês</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Total de Vendas</td>
+                        <td id="totalSales">R$0.00 (0 brownies)</td>
+                        <td id="todaySales">R$0.00 (0 brownies)</td>
+                        <td id="currentMonthSales">R$0.00 (0 brownies)</td>
+                    </tr>
+                    <tr>
+                        <td>Média Diária</td>
+                        <td id="dailyAverage">R$0.00</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td>Média Mensal</td>
+                        <td id="monthlyAverage">R$0.00</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                </tbody>
+            </table>
+            <button id="undoLastSale" onclick="undoLastSale()" disabled>Desfazer Última Venda</button>
+        </div>
+        <div id="dailyTab" class="tab-content">
+            <h2>Vendas por Dia</h2>
+            <table id="dailySalesTable">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Total</th>
+                        <th>Dízimo (10%)</th>
+                        <th>Brownies Vendidos</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="dailySalesBody">
+                </tbody>
+            </table>
+        </div>
+        <div id="monthlyTab" class="tab-content">
+            <h2>Vendas por Mês</h2>
+            <table id="monthlySalesTable">
+                <thead>
+                    <tr>
+                        <th>Mês</th>
+                        <th>Total</th>
+                        <th>Dízimo (10%)</th>
+                        <th>Brownies Vendidos</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="monthlySalesBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let sales = [];
+        let totalSales = 0;
+        let totalBrownies = 0;
+        let dailySales = {};
+        let dailyBrownies = {};
+        let monthlySales = {};
+        let monthlyBrownies = {};
+
+        let dailyBrownieTypes = {};
+        let monthlyBrownieTypes = {};
+
+        function addSale(price) {
+            let now = new Date();
+            let sale = {
+                price: price,
+                date: now.toISOString().split('T')[0],
+                month: now.toISOString().slice(0, 7),
+                type: `R$${price.toFixed(2)}`
+            };
+            sales.push(sale);
+            totalSales += price;
+            totalBrownies++;
+
+            if (dailySales[sale.date]) {
+                dailySales[sale.date] += price;
+                dailyBrownies[sale.date]++;
+                dailyBrownieTypes[sale.date][sale.type] = (dailyBrownieTypes[sale.date][sale.type] || 0) + 1;
+            } else {
+                dailySales[sale.date] = price;
+                dailyBrownies[sale.date] = 1;
+                dailyBrownieTypes[sale.date] = { [sale.type]: 1 };
+            }
+
+            if (monthlySales[sale.month]) {
+                monthlySales[sale.month] += price;
+                monthlyBrownies[sale.month]++;
+                monthlyBrownieTypes[sale.month][sale.type] = (monthlyBrownieTypes[sale.month][sale.type] || 0) + 1;
+            } else {
+                monthlySales[sale.month] = price;
+                monthlyBrownies[sale.month] = 1;
+                monthlyBrownieTypes[sale.month] = { [sale.type]: 1 };
+            }
+
+            document.getElementById('undoLastSale').disabled = false;
+            updateDisplay();
+            saveSales();
+        }
+
+        function updateDisplay() {
+            document.getElementById('totalSales').textContent = `R$${totalSales.toFixed(2)} (${totalBrownies} brownies)`;
+            
+            let dailyAvg = Object.values(dailySales).reduce((a, b) => a + b, 0) / Object.keys(dailySales).length || 0;
+            document.getElementById('dailyAverage').textContent = `R$${dailyAvg.toFixed(2)}`;
+            
+            let monthlyAvg = Object.values(monthlySales).reduce((a, b) => a + b, 0) / Object.keys(monthlySales).length || 0;
+            document.getElementById('monthlyAverage').textContent = `R$${monthlyAvg.toFixed(2)}`;
+
+            let today = new Date().toISOString().split('T')[0];
+            let currentMonth = new Date().toISOString().slice(0, 7);
+            
+            document.getElementById('todaySales').textContent = `R$${(dailySales[today] || 0).toFixed(2)} (${dailyBrownies[today] || 0} brownies)`;
+            document.getElementById('currentMonthSales').textContent = `R$${(monthlySales[currentMonth] || 0).toFixed(2)} (${monthlyBrownies[currentMonth] || 0} brownies)`;
+
+            updateDailySalesTable();
+            updateMonthlySalesTable();
+        }
+
+        function updateDailySalesTable() {
+            let tbody = document.getElementById('dailySalesBody');
+            tbody.innerHTML = '';
+            Object.entries(dailySales).sort((a, b) => b[0].localeCompare(a[0])).forEach(([date, total]) => {
+                let row = tbody.insertRow();
+                let cellDate = row.insertCell(0);
+                let cellTotal = row.insertCell(1);
+                let cellTithe = row.insertCell(2);
+                let cellBrownies = row.insertCell(3);
+                let cellAction = row.insertCell(4);
+                cellDate.textContent = date;
+                cellTotal.textContent = `R$${total.toFixed(2)}`;
+                cellTithe.textContent = `R$${(total * 0.1).toFixed(2)}`;
+                
+                let brownieBreakdown = Object.entries(dailyBrownieTypes[date] || {})
+                    .map(([type, count]) => `${type}: ${count}`)
+                    .join('<br>');
+                cellBrownies.innerHTML = `Total: ${dailyBrownies[date] || 0}<br>${brownieBreakdown}`;
+                
+                cellAction.innerHTML = `<button class="undo-btn" onclick="undoDailySale('${date}')">Desfazer</button>`;
+            });
+        }
+
+        function updateMonthlySalesTable() {
+            let tbody = document.getElementById('monthlySalesBody');
+            tbody.innerHTML = '';
+            Object.entries(monthlySales).sort((a, b) => b[0].localeCompare(a[0])).forEach(([month, total]) => {
+                let row = tbody.insertRow();
+                let cellMonth = row.insertCell(0);
+                let cellTotal = row.insertCell(1);
+                let cellTithe = row.insertCell(2);
+                let cellBrownies = row.insertCell(3);
+                let cellAction = row.insertCell(4);
+                cellMonth.textContent = formatMonth(month);
+                cellTotal.textContent = `R$${total.toFixed(2)}`;
+                cellTithe.textContent = `R$${(total * 0.1).toFixed(2)}`;
+                
+                let brownieBreakdown = Object.entries(monthlyBrownieTypes[month] || {})
+                    .map(([type, count]) => `${type}: ${count}`)
+                    .join('<br>');
+                cellBrownies.innerHTML = `Total: ${monthlyBrownies[month] || 0}<br>${brownieBreakdown}`;
+                
+                cellAction.innerHTML = `<button class="undo-btn" onclick="undoMonthlySale('${month}')">Desfazer</button>`;
+            });
+        }
+
+        function undoLastSale() {
+            if (sales.length > 0) {
+                let lastSale = sales.pop();
+                totalSales -= lastSale.price;
+                totalBrownies--;
+                dailySales[lastSale.date] -= lastSale.price;
+                dailyBrownies[lastSale.date]--;
+                monthlySales[lastSale.month] -= lastSale.price;
+                monthlyBrownies[lastSale.month]--;
+
+                dailyBrownieTypes[lastSale.date][lastSale.type]--;
+                if (dailyBrownieTypes[lastSale.date][lastSale.type] === 0) {
+                    delete dailyBrownieTypes[lastSale.date][lastSale.type];
+                }
+                
+                monthlyBrownieTypes[lastSale.month][lastSale.type]--;
+                if (monthlyBrownieTypes[lastSale.month][lastSale.type] === 0) {
+                    delete monthlyBrownieTypes[lastSale.month][lastSale.type];
+                }
+
+                if (dailySales[lastSale.date] === 0) {
+                    delete dailySales[lastSale.date];
+                    delete dailyBrownies[lastSale.date];
+                }
+                if (monthlySales[lastSale.month] === 0) {
+                    delete monthlySales[lastSale.month];
+                    delete monthlyBrownies[lastSale.month];
+                }
+
+                updateDisplay();
+                saveSales();
+
+                if (sales.length === 0) {
+                    document.getElementById('undoLastSale').disabled = true;
+                }
+            }
+        }
+
+        function undoDailySale(date) {
+            if (confirm(`Tem certeza que deseja desfazer a última venda do dia ${date}?`)) {
+                let lastSaleIndex = sales.findLastIndex(sale => sale.date === date);
+                if (lastSaleIndex !== -1) {
+                    let removedSale = sales.splice(lastSaleIndex, 1)[0];
+                    totalSales -= removedSale.price;
+                    totalBrownies--;
+                    dailySales[date] -= removedSale.price;
+                    dailyBrownies[date]--;
+                    monthlySales[removedSale.month] -= removedSale.price;
+                    monthlyBrownies[removedSale.month]--;
+
+                    dailyBrownieTypes[date][removedSale.type]--;
+                    if (dailyBrownieTypes[date][removedSale.type] === 0) {
+                        delete dailyBrownieTypes[date][removedSale.type];
+                    }
+
+                    monthlyBrownieTypes[removedSale.month][removedSale.type]--;
+                    if (monthlyBrownieTypes[removedSale.month][removedSale.type] === 0) {
+                        delete monthlyBrownieTypes[removedSale.month][removedSale.type];
+                    }
+
+                    if (dailySales[date] === 0) {
+                        delete dailySales[date];
+                        delete dailyBrownies[date];
+                    }
+                    if (monthlySales[removedSale.month] === 0) {
+                        delete monthlySales[removedSale.month];
+                        delete monthlyBrownies[removedSale.month];
+                    }
+
+                    updateDisplay();
+                    saveSales();
+                }
+            }
+        }
+
+        function undoMonthlySale(month) {
+            if (confirm(`Tem certeza que deseja desfazer a última venda do mês ${formatMonth(month)}?`)) {
+                let lastSaleIndex = sales.findLastIndex(sale => sale.month === month);
+                if (lastSaleIndex !== -1) {
+                    let removedSale = sales.splice(lastSaleIndex, 1)[0];
+                    totalSales -= removedSale.price;
+                    totalBrownies--;
+                    dailySales[removedSale.date] -= removedSale.price;
+                    dailyBrownies[removedSale.date]--;
+                    monthlySales[month] -= removedSale.price;
+                    monthlyBrownies[month]--;
+
+                    dailyBrownieTypes[removedSale.date][removedSale.type]--;
+                    if (dailyBrownieTypes[removedSale.date][removedSale.type] === 0) {
+                        delete dailyBrownieTypes[removedSale.date][removedSale.type];
+                    }
+
+                    monthlyBrownieTypes[month][removedSale.type]--;
+                    if (monthlyBrownieTypes[month][removedSale.type] === 0) {
+                        delete monthlyBrownieTypes[month][removedSale.type];
+                    }
+
+                    if (dailySales[removedSale.date] === 0) {
+                        delete dailySales[removedSale.date];
+                        delete dailyBrownies[removedSale.date];
+                    }
+                    if (monthlySales[month] === 0) {
+                        delete monthlySales[month];
+                        delete monthlyBrownies[month];
+                    }
+
+                    updateDisplay();
+                    saveSales();
+                }
+            }
+        }
+
+        function formatMonth(monthStr) {
+            const [year, month] = monthStr.split('-');
+            const date = new Date(year, month - 1);
+            return date.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+        }
+
+        function saveSales() {
+            let csv = Papa.unparse(sales);
+            let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            let link = document.createElement("a");
+            if (link.download !== undefined) {
+                let url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", "vendas_brownies.csv");
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            document.querySelector(`.tab:nth-child(${tabName === 'sales' ? 1 : (tabName === 'daily' ? 2 : 3)})`).classList.add('active');
+        }
+
+        if (localStorage.getItem('brownieSales')) {
+            sales = JSON.parse(localStorage.getItem('brownieSales'));
+            sales.forEach(sale => {
+                totalSales += sale.price;
+                totalBrownies++;
+                if (dailySales[sale.date]) {
+                    dailySales[sale.date] += sale.price;
+                    dailyBrownies[sale.date]++;
+                    dailyBrownieTypes[sale.date][sale.type] = (dailyBrownieTypes[sale.date][sale.type] || 0) + 1;
+                } else {
+                    dailySales[sale.date] = sale.price;
+                    dailyBrownies[sale.date] = 1;
+                    dailyBrownieTypes[sale.date] = { [sale.type]: 1 };
+                }
+                if (monthlySales[sale.month]) {
+                    monthlySales[sale.month] += sale.price;
+                    monthlyBrownies[sale.month]++;
+                    monthlyBrownieTypes[sale.month][sale.type] = (monthlyBrownieTypes[sale.month][sale.type] || 0) + 1;
+                } else {
+                    monthlySales[sale.month] = sale.price;
+                    monthlyBrownies[sale.month] = 1;
+                    monthlyBrownieTypes[sale.month] = { [sale.type]: 1 };
+                }
+            });
+            updateDisplay();
+        }
+
+        window.addEventListener('beforeunload', function() {
+            localStorage.setItem('brownieSales', JSON.stringify(sales));
+        });
+    </script>
+</body>
+</html>
